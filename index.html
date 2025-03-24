@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard SDR</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+  </head>
+  <body class="bg-gray-50 text-gray-800">
+    <header class="text-center py-6 bg-white shadow">
+      <h1 class="text-3xl font-bold">📊 Dashboard SDR</h1>
+      <p class="text-gray-500 mt-1">Visualização de dados da tabela <code>dashboard_sdr</code></p>
+    </header>
+
+    <main class="p-4 max-w-6xl mx-auto">
+      <div id="graficos" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+    </main>
+
+    <script type="module">
+      import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js/+esm';
+
+      const supabaseUrl = 'https://eunburxiqtzftppqvxtr.supabase.co';
+      const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bmJ1cnhpcXR6ZnRwcHF2eHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU1Njc3MzEsImV4cCI6MjA0MTE0MzczMX0.y-EgwTJ-uEzbLa_bTSzbEN10dSyTVrSJ27zrl51MLKc';
+      const supabase = createClient(supabaseUrl, supabaseKey);
+
+      async function fetchAndRender() {
+        const { data, error } = await supabase
+          .from('dashboard_sdr')
+          .select('selected_options, cursos, result, student, th, utm_status, userId, name');
+
+        if (error) {
+          console.error('Erro ao buscar dados:', error);
+          return;
+        }
+
+        const campos = {
+          selected_options: {},
+          cursos: {},
+          result: {},
+          student: {},
+          th: {},
+          utm_status: {},
+        };
+
+        data.forEach(row => {
+          for (const key in campos) {
+            const valor = row[key];
+            if (Array.isArray(valor)) {
+              valor.forEach(v => {
+                if (!campos[key][v]) campos[key][v] = 0;
+                campos[key][v]++;
+              });
+            } else if (valor && typeof valor === 'object') {
+              Object.entries(valor).forEach(([subKey, subVal]) => {
+                const label = `${subKey}: ${subVal}`;
+                if (!campos[key][label]) campos[key][label] = 0;
+                campos[key][label]++;
+              });
+            } else {
+              const normalizado = String(valor ?? 'Vazio');
+              if (!campos[key][normalizado]) campos[key][normalizado] = 0;
+              campos[key][normalizado]++;
+            }
+          }
+        });
+
+        for (const campo in campos) {
+          renderChart(campo, campos[campo]);
+        }
+      }
+
+      function renderChart(titulo, dados) {
+        const container = document.getElementById('graficos');
+        const card = document.createElement('div');
+        card.className = "bg-white rounded-xl shadow p-4";
+
+        const title = document.createElement('h2');
+        title.className = "text-lg font-semibold mb-2";
+        title.textContent = `Campo: ${titulo}`;
+        card.appendChild(title);
+
+        const canvas = document.createElement('canvas');
+        canvas.height = 300;
+        card.appendChild(canvas);
+        container.appendChild(card);
+
+        new Chart(canvas, {
+          type: 'bar',
+          data: {
+            labels: Object.keys(dados),
+            datasets: [{
+              label: `Ocorrências`,
+              data: Object.values(dados),
+              backgroundColor: 'rgba(59, 130, 246, 0.5)',
+              borderColor: 'rgba(59, 130, 246, 1)',
+              borderWidth: 1
+            }]
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { display: false },
+              title: {
+                display: false
+              }
+            },
+            indexAxis: 'y',
+            scales: {
+              x: {
+                beginAtZero: true
+              }
+            }
+          }
+        });
+      }
+
+      fetchAndRender();
+    </script>
+  </body>
+</html>
