@@ -9,10 +9,53 @@
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
     <style>
       body { background-color: #f8f9fc; }
+      .sidebar {
+        height: 100vh;
+        width: 250px;
+        position: fixed;
+        top: 0;
+        right: -250px;
+        background-color: #fff;
+        box-shadow: -2px 0 5px rgba(0, 0, 0, 0.1);
+        padding: 1rem;
+        overflow-y: auto;
+        z-index: 100;
+        transition: right 0.3s ease;
+      }
+      .sidebar.is-active {
+        right: 0;
+      }
+      .main-content {
+        padding: 1rem;
+        transition: margin-right 0.3s ease;
+      }
+      .toggle-sidebar {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 101;
+      }
     </style>
   </head>
   <body>
-    <section class="section">
+    <button class="button is-primary toggle-sidebar" id="openSidebarBtn" onclick="toggleSidebar()">☰ Filtros</button>
+
+    <aside class="sidebar" id="sidebar">
+      <h2 class="title is-5">Filtrar Gráficos</h2>
+      <div class="field">
+        <label class="label">Pergunta</label>
+        <div class="control">
+          <div class="select is-fullwidth">
+            <select id="campoSelect">
+              <option value="todos">Todos</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <button class="button is-danger is-fullwidth mt-4" onclick="toggleSidebar()">Fechar</button>
+    </aside>
+
+    <section class="section main-content" id="mainContent">
       <div class="container">
         <div class="level">
           <div class="level-left">
@@ -20,15 +63,7 @@
           </div>
         </div>
 
-        <!-- Métricas -->
-        <div class="columns is-multiline" id="metricas">
-          <!-- Cards inseridos via JS -->
-        </div>
-
-        <!-- Gráficos -->
-        <div id="chartsContainer" class="columns is-multiline">
-          <!-- Gráficos inseridos via JS -->
-        </div>
+        <div id="chartsContainer" class="columns is-multiline"></div>
       </div>
     </section>
 
@@ -40,85 +75,86 @@
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bmJ1cnhpcXR6ZnRwcHF2eHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU1Njc3MzEsImV4cCI6MjA0MTE0MzczMX0.y-EgwTJ-uEzbLa_bTSzbEN10dSyTVrSJ27zrl51MLKc'
       );
 
+      let selectedQuestions = {};
+
       async function fetchData() {
         const { data, error } = await supabase
           .from('dashboard_sdr')
-          .select('selected_options, cursos, result, student, th, utm_status');
+          .select('selected_options, student, cursos, th, utm_status');
 
         if (error) {
           console.error('Erro ao buscar dados:', error);
           return;
         }
 
-        const campos = {
-          result: {},
+        let camposExtras = {
           student: {},
           cursos: {},
-          selected_options: {},
           th: {},
-          utm_status: {},
+          utm_status: {}
         };
 
         data.forEach(row => {
-          for (const key in campos) {
-            const valor = row[key];
-            if (Array.isArray(valor)) {
-              valor.forEach(v => {
-                if (!campos[key][v]) campos[key][v] = 0;
-                campos[key][v]++;
-              });
-            } else if (valor && typeof valor === 'object') {
-              Object.entries(valor).forEach(([subKey, subVal]) => {
-                const label = `${subKey}: ${subVal}`;
-                if (!campos[key][label]) campos[key][label] = 0;
-                campos[key][label]++;
-              });
-            } else {
-              const normalizado = String(valor ?? 'Vazio');
-              if (!campos[key][normalizado]) campos[key][normalizado] = 0;
-              campos[key][normalizado]++;
+          let options = row.selected_options;
+
+          try {
+            if (typeof options === 'string') {
+              const fixed = options
+                .replace(/([\{,\s])(\w+)(?=\s*:)/g, '$1"$2"')
+                .replace(/: (\w+)([\s,\}])/g, ': "$1"$2');
+              options = JSON.parse(fixed);
             }
+
+            if (options && Array.isArray(options.selectedOptions)) {
+              options.selectedOptions.forEach(value => {
+                const question = 'Motivo de Interesse';
+                const answer = value;
+                if (!selectedQuestions[question]) selectedQuestions[question] = {};
+                if (!selectedQuestions[question][answer]) selectedQuestions[question][answer] = 0;
+                selectedQuestions[question][answer]++;
+              });
+            }
+          } catch (e) {
+            console.warn('Erro ao processar selected_options:', e);
+          }
+
+          for (const campo in camposExtras) {
+            const valor = row[campo];
+            const normalizado = String(valor ?? 'Vazio');
+            if (!camposExtras[campo][normalizado]) camposExtras[campo][normalizado] = 0;
+            camposExtras[campo][normalizado]++;
           }
         });
 
-        renderMetricCards(campos);
-        renderCharts(campos);
+        selectedQuestions = { ...selectedQuestions, ...camposExtras };
+
+        renderCharts(selectedQuestions);
+        populateSelect(Object.keys(selectedQuestions));
       }
 
-      function renderMetricCards(campos) {
-        const metricas = document.getElementById('metricas');
-        metricas.innerHTML = '';
-
-        for (const campo in campos) {
-          const dados = campos[campo];
-          const total = Object.values(dados).reduce((a, b) => a + b, 0);
-
-          const card = document.createElement('div');
-          card.className = 'column is-one-fifth';
-          card.innerHTML = `
-            <div class="box has-text-centered">
-              <p class="title is-5">${campo}</p>
-              <p class="title is-3">${total}</p>
-            </div>
-          `;
-          metricas.appendChild(card);
-        }
+      function populateSelect(questions) {
+        const select = document.getElementById('campoSelect');
+        questions.forEach(question => {
+          const option = document.createElement('option');
+          option.value = question;
+          option.textContent = question;
+          select.appendChild(option);
+        });
       }
 
-      function renderCharts(campos) {
+      function renderCharts(dataset) {
         const container = document.getElementById('chartsContainer');
         container.innerHTML = '';
 
-        for (const campo in campos) {
-          const dados = campos[campo];
-          if (Object.keys(dados).length === 0) continue;
+        for (const question in dataset) {
+          const data = dataset[question];
 
           const chartBox = document.createElement('div');
-          chartBox.className = Object.keys(dados).length > 5 ? 'column is-full' : 'column is-half';
+          chartBox.className = 'column is-full';
           chartBox.innerHTML = `
             <div class="box">
-              <p class="title is-5">${campo}</p>
-              <canvas id="chart-${campo}"></canvas>
+              <p class="title is-5">${question}</p>
+              <canvas id="chart-${question}"></canvas>
             </div>
           `;
           container.appendChild(chartBox);
@@ -128,16 +164,16 @@
           new Chart(ctx, {
             type: 'bar',
             data: {
-              labels: Object.keys(dados),
+              labels: Object.keys(data),
               datasets: [{
-                label: campo,
-                data: Object.values(dados),
+                label: question,
+                data: Object.values(data),
                 backgroundColor: '#36A2EB'
               }]
             },
             options: {
               plugins: {
-                legend: { display: true },
+                legend: { display: false },
                 datalabels: {
                   color: '#000',
                   anchor: 'center',
@@ -154,6 +190,22 @@
             plugins: [ChartDataLabels]
           });
         }
+      }
+
+      document.getElementById('campoSelect').addEventListener('change', function () {
+        const value = this.value;
+        if (value === 'todos') {
+          renderCharts(selectedQuestions);
+        } else {
+          renderCharts({ [value]: selectedQuestions[value] });
+        }
+      });
+
+      window.toggleSidebar = function () {
+        const sidebar = document.getElementById('sidebar');
+        const btn = document.getElementById('openSidebarBtn');
+        sidebar.classList.toggle('is-active');
+        btn.style.display = sidebar.classList.contains('is-active') ? 'none' : 'block';
       }
 
       fetchData();
