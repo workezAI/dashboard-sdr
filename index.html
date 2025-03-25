@@ -63,6 +63,7 @@
           </div>
         </div>
 
+        <div id="cardsContainer" class="columns is-multiline mb-6"></div>
         <div id="chartsContainer" class="columns is-multiline"></div>
       </div>
     </section>
@@ -100,8 +101,8 @@
           try {
             if (typeof options === 'string') {
               const fixed = options
-                .replace(/([\{,\s])(\w+)(?=\s*:)/g, '$1"$2"')
-                .replace(/: (\w+)([\s,\}])/g, ': "$1"$2');
+                .replace(/([\{,\s])([a-zA-Z0-9_]+)(?=\s*:)/g, '"$2"')
+                .replace(/: ([^"{\[\]\},\s]+)([,}])/g, ': "$1"$2');
               options = JSON.parse(fixed);
             }
 
@@ -128,8 +129,27 @@
 
         selectedQuestions = { ...selectedQuestions, ...camposExtras };
 
+        renderCards(selectedQuestions);
         renderCharts(selectedQuestions);
         populateSelect(Object.keys(selectedQuestions));
+      }
+
+      function renderCards(dataset) {
+        const cardsContainer = document.getElementById('cardsContainer');
+        cardsContainer.innerHTML = '';
+
+        for (const key in dataset) {
+          const total = Object.values(dataset[key]).reduce((sum, count) => sum + count, 0);
+          const card = document.createElement('div');
+          card.className = 'column is-one-fifth';
+          card.innerHTML = `
+            <div class="box has-text-centered">
+              <p class="title is-5">${key}</p>
+              <p class="title is-3">${total}</p>
+            </div>
+          `;
+          cardsContainer.appendChild(card);
+        }
       }
 
       function populateSelect(questions) {
@@ -195,8 +215,10 @@
       document.getElementById('campoSelect').addEventListener('change', function () {
         const value = this.value;
         if (value === 'todos') {
+          renderCards(selectedQuestions);
           renderCharts(selectedQuestions);
         } else {
+          renderCards({ [value]: selectedQuestions[value] });
           renderCharts({ [value]: selectedQuestions[value] });
         }
       });
