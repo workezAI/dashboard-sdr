@@ -89,30 +89,20 @@
         const metricas = document.getElementById('metricas');
         metricas.innerHTML = '';
 
-        const total = Object.values(campos.student).reduce((a, b) => a + b, 0);
+        for (const campo in campos) {
+          const dados = campos[campo];
+          const total = Object.values(dados).reduce((a, b) => a + b, 0);
 
-        for (const key in campos.student) {
-          const count = campos.student[key];
           const card = document.createElement('div');
           card.className = 'column is-one-fifth';
           card.innerHTML = `
             <div class="box has-text-centered">
-              <p class="title is-5">${key}</p>
-              <p class="title is-3">${count}</p>
+              <p class="title is-5">${campo}</p>
+              <p class="title is-3">${total}</p>
             </div>
           `;
           metricas.appendChild(card);
         }
-
-        const totalCard = document.createElement('div');
-        totalCard.className = 'column is-one-fifth';
-        totalCard.innerHTML = `
-          <div class="box has-text-centered">
-            <p class="title is-5">Total Pessoas</p>
-            <p class="title is-3">${total}</p>
-          </div>
-        `;
-        metricas.appendChild(totalCard);
       }
 
       function renderCharts(campos) {
