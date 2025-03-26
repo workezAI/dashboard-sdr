@@ -77,7 +77,6 @@
       );
 
       let selectedQuestions = {};
-
       async function fetchData() {
   const { data, error } = await supabase
     .from('dashboard_sdr')
@@ -98,7 +97,7 @@
   const chartsData = {};
 
   data.forEach(row => {
-    // Processar os dados dos cards (campos fixos)
+    // Preenche dados dos cards
     for (const campo in cardsData) {
       const valor = row[campo];
       const normalizado = String(valor ?? 'Vazio');
@@ -106,7 +105,7 @@
       cardsData[campo][normalizado]++;
     }
 
-    // Processar os dados dos gráficos (campo "result")
+    // Processa dados dos gráficos a partir de 'result'
     let result = row.result;
     try {
       if (typeof result === 'string') {
@@ -118,8 +117,10 @@
 
       if (result && typeof result === 'object') {
         for (const question in result) {
-          const answer = result[question];
+          // Ignora campos indesejados
+          if (['id', 'name'].includes(question)) continue;
 
+          const answer = result[question];
           if (!chartsData[question]) chartsData[question] = {};
 
           if (Array.isArray(answer)) {
@@ -140,18 +141,19 @@
     }
   });
 
-  // Só os cards dos campos fixos
+  // Renderiza somente os cards dos campos fixos
   renderCards(cardsData);
 
-  // Só os gráficos com base no campo result
+  // Renderiza somente os gráficos com base em result
   renderCharts(chartsData);
 
-  // Preencher o filtro com as perguntas de result
+  // Preenche o filtro com as perguntas do result
   populateSelect(Object.keys(chartsData));
 
-  // Guardar para o filtro funcionar depois
+  // Armazena os dados dos gráficos para uso no filtro
   selectedQuestions = chartsData;
 }
+
 
 
       function renderCards(dataset) {
