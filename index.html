@@ -79,60 +79,80 @@
       let selectedQuestions = {};
 
       async function fetchData() {
-        const { data, error } = await supabase
-          .from('dashboard_sdr')
-          .select('selected_options, student, cursos, th, utm_status');
+  const { data, error } = await supabase
+    .from('dashboard_sdr')
+    .select('student, cursos, th, utm_status, result');
 
-        if (error) {
-          console.error('Erro ao buscar dados:', error);
-          return;
-        }
+  if (error) {
+    console.error('Erro ao buscar dados:', error);
+    return;
+  }
 
-        let camposExtras = {
-          student: {},
-          cursos: {},
-          th: {},
-          utm_status: {}
-        };
+  const cardsData = {
+    student: {},
+    cursos: {},
+    th: {},
+    utm_status: {}
+  };
 
-        data.forEach(row => {
-          let options = row.selected_options;
+  const chartsData = {};
 
-          try {
-            if (typeof options === 'string') {
-              const fixed = options
-                .replace(/([\{,\s])([a-zA-Z0-9_]+)(?=\s*:)/g, '"$2"')
-                .replace(/: ([^"{\[\]\},\s]+)([,}])/g, ': "$1"$2');
-              options = JSON.parse(fixed);
-            }
+  data.forEach(row => {
+    // Processar os dados dos cards (campos fixos)
+    for (const campo in cardsData) {
+      const valor = row[campo];
+      const normalizado = String(valor ?? 'Vazio');
+      if (!cardsData[campo][normalizado]) cardsData[campo][normalizado] = 0;
+      cardsData[campo][normalizado]++;
+    }
 
-            if (options && Array.isArray(options.selectedOptions)) {
-              options.selectedOptions.forEach(value => {
-                const question = 'Motivo de Interesse';
-                const answer = value;
-                if (!selectedQuestions[question]) selectedQuestions[question] = {};
-                if (!selectedQuestions[question][answer]) selectedQuestions[question][answer] = 0;
-                selectedQuestions[question][answer]++;
-              });
-            }
-          } catch (e) {
-            console.warn('Erro ao processar selected_options:', e);
-          }
-
-          for (const campo in camposExtras) {
-            const valor = row[campo];
-            const normalizado = String(valor ?? 'Vazio');
-            if (!camposExtras[campo][normalizado]) camposExtras[campo][normalizado] = 0;
-            camposExtras[campo][normalizado]++;
-          }
-        });
-
-        selectedQuestions = { ...selectedQuestions, ...camposExtras };
-
-        renderCards(selectedQuestions);
-        renderCharts(selectedQuestions);
-        populateSelect(Object.keys(selectedQuestions));
+    // Processar os dados dos gráficos (campo "result")
+    let result = row.result;
+    try {
+      if (typeof result === 'string') {
+        const fixed = result
+          .replace(/([\{,\s])([a-zA-Z0-9_]+)(?=\s*:)/g, '"$2"')
+          .replace(/: ([^"{\[\]\},\s]+)([,}])/g, ': "$1"$2');
+        result = JSON.parse(fixed);
       }
+
+      if (result && typeof result === 'object') {
+        for (const question in result) {
+          const answer = result[question];
+
+          if (!chartsData[question]) chartsData[question] = {};
+
+          if (Array.isArray(answer)) {
+            answer.forEach(a => {
+              const val = String(a);
+              if (!chartsData[question][val]) chartsData[question][val] = 0;
+              chartsData[question][val]++;
+            });
+          } else {
+            const val = String(answer);
+            if (!chartsData[question][val]) chartsData[question][val] = 0;
+            chartsData[question][val]++;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Erro ao processar result:', e);
+    }
+  });
+
+  // Só os cards dos campos fixos
+  renderCards(cardsData);
+
+  // Só os gráficos com base no campo result
+  renderCharts(chartsData);
+
+  // Preencher o filtro com as perguntas de result
+  populateSelect(Object.keys(chartsData));
+
+  // Guardar para o filtro funcionar depois
+  selectedQuestions = chartsData;
+}
+
 
       function renderCards(dataset) {
         const cardsContainer = document.getElementById('cardsContainer');
