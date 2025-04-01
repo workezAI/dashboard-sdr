@@ -75,8 +75,31 @@
         'https://eunburxiqtzftppqvxtr.supabase.co',
         'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImV1bmJ1cnhpcXR6ZnRwcHF2eHRyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MjU1Njc3MzEsImV4cCI6MjA0MTE0MzczMX0.y-EgwTJ-uEzbLa_bTSzbEN10dSyTVrSJ27zrl51MLKc'
       );
-
       let selectedQuestions = {};
+
+      const traducoes = {
+  // Campos fixos
+  student: "Aluno",
+  cursos: "Curso",
+  th: "Tipo de Horário",
+  utm_status: "Status UTM",
+
+  // Campos de respostas do formulário
+  income_sharing: "Compartilha sua renda",
+  income_dependents: "Possui dependentes?",
+  family_income_range: "Faixa de Renda Familiar",
+  education_level: "Nível de Escolaridade",
+  investment_2024: "Pretende investir em 2024",
+  financial_concern: "Tem preocupações financeiras",
+  professional_moment: "Momento Profissional",
+  professional_sector: "Setor Profissional",
+  ranking_finance_motives: "Motivos para Investir",
+  financial_goal_challenges: "Desafios para Meta Financeira",
+  financial_goal_difficulty: "Dificuldade com Metas Financeiras",
+  financial_interest_reasons: "Motivos de Interesse Financeiro"
+};
+
+
       async function fetchData() {
   const { data, error } = await supabase
     .from('dashboard_sdr')
@@ -86,6 +109,7 @@
     console.error('Erro ao buscar dados:', error);
     return;
   }
+
 
   const cardsData = {
     student: {},
@@ -166,7 +190,8 @@
           card.className = 'column is-one-fifth';
           card.innerHTML = `
             <div class="box has-text-centered">
-              <p class="title is-5">${key}</p>
+              <p class="title is-5">${traducoes[key] || key}</p>
+
               <p class="title is-3">${total}</p>
             </div>
           `;
@@ -179,7 +204,8 @@
         questions.forEach(question => {
           const option = document.createElement('option');
           option.value = question;
-          option.textContent = question;
+          option.textContent = traducoes[question] || question;
+
           select.appendChild(option);
         });
       }
@@ -195,7 +221,7 @@
           chartBox.className = 'column is-half';
           chartBox.innerHTML = `
             <div class="box">
-              <p class="title is-5">${question}</p>
+              <p class="title is-5">${traducoes[question] || question}</p>
               <canvas id="chart-${question}"></canvas>
             </div>
           `;
@@ -208,7 +234,7 @@
             data: {
               labels: Object.keys(data),
               datasets: [{
-                label: question,
+                label: traducoes[question] || question,
                 data: Object.values(data),
                 backgroundColor: '#36A2EB'
               }]
